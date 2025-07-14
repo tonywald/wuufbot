@@ -184,7 +184,7 @@ async def welcome_help_command(update: Update, context: ContextTypes.DEFAULT_TYP
     help_text = """
 <b>Welcome Message Help</b>
 
-Your group's welcome/goodbye messages can be personalised in multiple ways.
+The group's welcome/goodbye messages can be personalised in multiple ways.
 
 <b>Placeholders:</b>
 You can use these variables in your custom messages. Each variable MUST be surrounded by `{}` to be replaced.
@@ -196,6 +196,8 @@ You can use these variables in your custom messages. Each variable MUST be surro
  • <code>{id}</code>: The user's ID.
  • <code>{count}</code>: The new member count of the chat.
  • <code>{chatname}</code>: The current chat's name.
+
+So, for example, <code>Hello, {id}!</code>. 
 
 <b>Formatting:</b>
 Welcome messages support html, so you can make any elements bold (&lt;b&gt;,&lt;/b&gt;) , italic (&lt;i&gt;,&lt;/i&gt;), etc.
@@ -258,11 +260,11 @@ async def handle_new_group_members(update: Update, context: ContextTypes.DEFAULT
             bot_username = context.bot.username
             
             welcome_message_to_group = (
-                f"👋 Hello! I'm <b>Zenthron</b>, your new group assistant.\n\n"
+                f"👋 Hello! I'm <b>WuufBot</b>, your new group assistant.\n\n"
                 f"I'm here to help you manage the chat and have some fun. "
                 f"To see what I can do, click button 'Get Help in PM'.\n\n"
                 f"<b>I was added by {update.message.from_user.mention_html()}</b>.\n"
-                f"<i>I'm Still a Work In Progress [WIP]. Various bugs and security holes may appear for which Bot creators are not responsible [You add at your own risk]. For any questions or issues, please contact our support team at {APPEAL_CHAT_USERNAME}.</i>"
+                f"<i>I'm still a work in progress. Various bugs and security holes may appear and they will be patched as quickly as possible. For any questions or issues, please contact our support team at {APPEAL_CHAT_USERNAME}.</i>"
             )
             
             keyboard = InlineKeyboardMarkup(

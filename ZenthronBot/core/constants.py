@@ -60,9 +60,6 @@ HELP_TEXT = """
 <b>🔹 Chat Security</b>
 /enforcegban &lt;yes/no&gt; - Enable/disable Global Ban enforcement. <i>(Chat Creator only)</i>
 
-<b>🔹 AI Commands</b>
-/askai &lt;prompt&gt; - Ask the AI a question.
-
 <b>🔹 Fun Commands</b>
 /kill &lt;@user/reply&gt; - Metaphorically eliminate someone.
 /punch &lt;@user/reply&gt; - Deliver a textual punch.

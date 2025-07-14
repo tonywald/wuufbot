@@ -29,7 +29,7 @@ logger = logging.getLogger(__name__)
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     user = update.effective_user
     
-    welcome_message = f"Welcome, {user.mention_html()}! I am a Zenthron. Your Telegram group assistant.\nUse /help to see available commands.\n\n<i>I'm Still a Work In Progress [WIP]. Various bugs and security holes may appear for which Bot creators are not responsible [You add me to group at your own risk]. For any questions or issues, please contact our support team at {APPEAL_CHAT_USERNAME}.</i>"
+    welcome_message = f"Welcome, {user.mention_html()}! I am WuufBot. Your Telegram group assistant.\nUse /help to see available commands.\n\n<i>I'm still a work in progress. Various bugs and security holes may appear and they will be patched as quickly as possible. For any questions or issues, please contact our support team at {APPEAL_CHAT_USERNAME}.</i>"
     
     if context.args:
         if context.args[0] == 'help':
@@ -98,7 +98,7 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
     await send_safe_reply(update, context, text=message_text, reply_markup=keyboard)
 
 async def github(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    github_link = "https://github.com/R0Xofficial/ZenthronBot"
+    github_link = "https://github.com/tonywald/wuufbot"
     await update.message.reply_text(f"This bot is open source. You can find the code here: {github_link}", disable_web_page_preview=True)
 
 async def owner_info(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:

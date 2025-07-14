@@ -80,8 +80,8 @@ else:
     
 LOG_CHAT_USERNAME = os.getenv("LOG_CHAT_USERNAME")
 
-DB_NAME = "zenthron_data.db"
-SESSION_NAME = "zenthron_user_session"
+DB_NAME = "wuufbot_data.db"
+SESSION_NAME = "wuufbot_user_session"
 
 BOT_START_TIME = datetime.now()
 MAX_WARNS = 3
