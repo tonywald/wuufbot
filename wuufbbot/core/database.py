@@ -4,7 +4,14 @@ from datetime import datetime, timezone
 from typing import List, Tuple
 from telegram import User
 
-from ..config import DB_NAME
+#from ..config import DB_NAME
+
+import os
+from dotenv import load_dotenv
+
+load_dotenv()
+
+DB_NAME = os.getenv("DB_NAME")
 
 logger = logging.getLogger(__name__)
 

@@ -1,3 +1,4 @@
 .env
 wuufbot_data.db
 *session*
+__pycache__

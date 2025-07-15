@@ -11,7 +11,7 @@ from telethon import TelegramClient
 
 import config
 from core import database
-from modules.database import init_db
+from core.database import init_db
 
 logging.basicConfig(
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=logging.INFO
