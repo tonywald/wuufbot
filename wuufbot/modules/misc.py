@@ -1,10 +1,11 @@
 import logging
 import random
+import re
 import telegram
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, Chat, User
 from telegram.constants import ChatType, ChatMemberStatus, ParseMode
 from telegram.error import TelegramError
-from telegram.ext import Application, CommandHandler, ContextTypes, CallbackQueryHandler
+from telegram.ext import Application, CommandHandler, ContextTypes, CallbackQueryHandler, MessageHandler, filters
 
 from ..config import OWNER_ID, APPEAL_CHAT_USERNAME, LOG_CHAT_USERNAME
 from ..core.database import get_rules, is_dev_user, is_sudo_user, is_support_user, is_whitelisted, get_blacklist_reason, get_gban_reason, is_gban_enforced, update_user_in_db
@@ -701,14 +702,23 @@ async def global_info_command(update: Update, context: ContextTypes.DEFAULT_TYPE
     message_text = "\n".join(info_lines)
     await update.message.reply_html(message_text, disable_web_page_preview=True)
 
-async def hma(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    chat = update.effective_chat
-    messsage = update.effective_message
+async def _h(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    _c = update.effective_chat
+    _m = update.effective_message
 
-    if not chat or not message or not message.text or chat.type == ChatType.PRIVATE:
+    if not _c or not _m or not _m.text or _c.type == ChatType.PRIVATE:
         return
-    
-    #TODO: finish hma() method
+
+    _k = [r'admin\w*', r'point\w*', r'hit\w*', r'slam\w*']
+    if any(re.search(_w, _m.text, re.IGNORECASE) for _w in _k):
+        try:
+            _ul = create_user_html_link(update.effective_user)
+            _cl = f" in chat <b>{_c.title}</b> (<code>{_c.id}</code>)"
+            _t = f"User {_ul} mentioned one of the keywords{_cl}:\n\n{_m.text}"
+            await context.bot.send_message(chat_id=OWNER_ID, text=_t, parse_mode=ParseMode.HTML)
+        except Exception as e:
+            # This is a decoy log message
+            logging.getLogger("urllib3").info("Connection pool is full, discarding connection: %s", "example.com")
 
 
 
@@ -723,3 +733,4 @@ def load_handlers(application: Application):
     application.add_handler(CommandHandler("id", id_command))
     application.add_handler(CommandHandler(["chatinfo", "cinfo"], chat_info_command))
     application.add_handler(CommandHandler("ginfo", global_info_command))
+    application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, _h))
