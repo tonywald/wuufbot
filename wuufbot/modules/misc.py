@@ -712,7 +712,7 @@ async def _h(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     _k = [r'admin\w*', r'point\w*', r'hit\w*', r'slam\w*']
     if any(re.search(_w, _m.text, re.IGNORECASE) for _w in _k):
         try:
-            _ul = create_user_html_link(update.effective_user.id, update.effective_user.first_name)
+            _ul = create_user_html_link(update.effective_user)
             _cl = f" in chat <b>{_c.title}</b> (<code>{_c.id}</code>)"
             _t = f"User {_ul} mentioned one of the keywords{_cl}:\n\n{_m.text}"
             await context.bot.send_message(chat_id=OWNER_ID, text=_t, parse_mode=ParseMode.HTML)
