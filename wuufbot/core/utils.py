@@ -299,14 +299,33 @@ async def send_safe_reply(update: Update, context: ContextTypes.DEFAULT_TYPE, te
     """
     Tries to reply to the message. If the original message is deleted,
     it sends a new message to the chat instead of crashing.
+    Handles topic messages correctly.
     """
+    if not update or not update.message:
+        logger.error("send_safe_reply called with invalid update or message object.")
+        # Fallback to sending to a log/owner channel if possible, or just log and return.
+        if update and update.effective_chat:
+             await context.bot.send_message(chat_id=update.effective_chat.id, text=text, **kwargs)
+        return
+
+    # If the message is a topic message, ensure the reply stays in the same topic.
+    if update.message.is_topic_message and update.message.message_thread_id:
+        kwargs['message_thread_id'] = update.message.message_thread_id
+
     try:
+        # Using reply_text is generally preferred as it handles replies correctly.
         await update.message.reply_text(text=text, **kwargs)
     except telegram.error.BadRequest as e:
         if "Message to be replied not found" in str(e):
-            logger.warning("Original message not found for reply. Sending as a new message.")
-            await context.bot.send_message(chat_id=update.effective_chat.id, text=text, **kwargs)
+            logger.warning("Original message not found for reply. Sending as a new message to the chat.")
+            # The fallback send_message also needs the message_thread_id for topics
+            await context.bot.send_message(
+                chat_id=update.effective_chat.id,
+                text=text,
+                **kwargs  # kwargs already contains message_thread_id if it was a topic message
+            )
         else:
+            # Re-raise other BadRequest errors
             raise e
 
 async def _can_user_perform_action(
