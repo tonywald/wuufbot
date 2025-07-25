@@ -7,7 +7,7 @@ from telegram.ext import Application, CommandHandler, MessageHandler, filters, C
 from telegram.constants import ParseMode, ChatType
 
 from ..core.database import add_or_update_filter, remove_filter, get_all_filters_for_chat
-from ..core.utils import _can_user_perform_action, safe_escape
+from ..core.utils import _can_user_perform_action, safe_escape, send_safe_reply
 from ..core.decorators import check_module_enabled, command_control
 from ..core.handlers import custom_handler
 from ..core.constants import FILTERS_HELP_TEXT
