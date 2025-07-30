@@ -242,87 +242,105 @@ async def error_handler(update: object, context: ContextTypes.DEFAULT_TYPE) -> N
             logger.critical(f"CRITICAL: Could not send error log with file to {target_id}: {e}")
             await send_critical_log(context, short_message)
 
+async def post_shutdown(application: Application) -> None:
+    logger.info("Starting post-shutdown process...")
+    telethon_client = application.bot_data.get("telethon_client")
+    if telethon_client and telethon_client.is_connected():
+        await telethon_client.disconnect()
+        logger.info("Telethon client disconnected.")
+    logger.info("Bot shutdown process completed.")
+
 async def main() -> None:
     init_db()
 
-    async with TelegramClient(SESSION_NAME, API_ID, API_HASH) as telethon_client:
-        logger.info("Telethon client started.")
+    telethon_client = TelegramClient(SESSION_NAME, API_ID, API_HASH)
+    await telethon_client.start(bot_token=BOT_TOKEN)
+    logger.info("Telethon client started.")
 
-        custom_request_settings = HTTPXRequest(connect_timeout=20.0, read_timeout=80.0, write_timeout=80.0, pool_timeout=20.0)
-        
-        application = (
-            ApplicationBuilder()
-            .token(BOT_TOKEN)
-            .request(custom_request_settings)
-            .job_queue(JobQueue())
-            .build()
-        )
+    custom_request_settings = HTTPXRequest(connect_timeout=20.0, read_timeout=80.0, write_timeout=80.0, pool_timeout=20.0)
 
-        # --- GLOBAL LAYER: TRACEBACKS - MODULE LOADER ---
-        application.add_error_handler(error_handler)
-        discover_and_register_handlers(application)
+    application = (
+        ApplicationBuilder()
+        .token(BOT_TOKEN)
+        .request(custom_request_settings)
+        .job_queue(JobQueue())
+        .post_shutdown(post_shutdown)
+        .build()
+    )
 
-        # --- LAYER 1: TOP PRIORITY - SECURITY AND IGNORANCE ---
-        application.add_handler(ChatMemberHandler(check_blacklisted_chat_on_join, ChatMemberHandler.MY_CHAT_MEMBER), group=-200)
-        application.add_handler(ChatMemberHandler(handle_bot_permission_changes, ChatMemberHandler.MY_CHAT_MEMBER), group=-100)
-        application.add_handler(ChatMemberHandler(handle_bot_banned, ChatMemberHandler.MY_CHAT_MEMBER), group=-100)
-        application.add_handler(MessageHandler(filters.UpdateType.EDITED_MESSAGE & filters.COMMAND, ignore_edited_commands), group=-50)
+    # --- GLOBAL LAYER: TRACEBACKS - MODULE LOADER ---
+    application.add_error_handler(error_handler)
+    discover_and_register_handlers(application)
 
-        # --- LAYER 2: USER FILTERING - BLACKLISTS - GBANS - JOINFILTER ---
-        application.add_handler(MessageHandler(filters.StatusUpdate.NEW_CHAT_MEMBERS, check_gban_on_entry), group=-20)
-        application.add_handler(MessageHandler(filters.StatusUpdate.NEW_CHAT_MEMBERS, check_new_member), group=-15)
-        application.add_handler(MessageHandler(filters.COMMAND, check_blacklist_handler), group=-10)
-        application.add_handler(MessageHandler(filters.TEXT | filters.COMMAND | filters.Sticker.ALL | filters.PHOTO | filters.VIDEO | filters.VOICE | filters.ANIMATION & filters.ChatType.GROUPS, check_gban_on_message), group=-10)
+    # --- LAYER 1: TOP PRIORITY - SECURITY AND IGNORANCE ---
+    application.add_handler(ChatMemberHandler(check_blacklisted_chat_on_join, ChatMemberHandler.MY_CHAT_MEMBER), group=-200)
+    application.add_handler(ChatMemberHandler(handle_bot_permission_changes, ChatMemberHandler.MY_CHAT_MEMBER), group=-100)
+    application.add_handler(ChatMemberHandler(handle_bot_banned, ChatMemberHandler.MY_CHAT_MEMBER), group=-100)
+    application.add_handler(MessageHandler(filters.UpdateType.EDITED_MESSAGE & filters.COMMAND, ignore_edited_commands), group=-50)
 
-        # --- LAYER 3: PASSIVE MECHANISMS - AFK ---
-        application.add_handler(MessageHandler(filters.Regex(r'^(brb|BRB|Brb|bRB|brB|BRb|bRb)'), afk_brb_handler), group=-6)
-        application.add_handler(MessageHandler(filters.TEXT | filters.COMMAND | filters.Sticker.ALL | filters.PHOTO | filters.VIDEO | filters.VOICE | filters.ANIMATION, check_afk_return), group=-5)
-        application.add_handler(MessageHandler(filters.TEXT & (~filters.COMMAND) & (filters.REPLY | filters.Entity(constants.MessageEntityType.MENTION) | filters.Entity(constants.MessageEntityType.TEXT_MENTION)), afk_reply_handler), group=-4)
+    # --- LAYER 2: USER FILTERING - BLACKLISTS - GBANS - JOINFILTER ---
+    application.add_handler(MessageHandler(filters.StatusUpdate.NEW_CHAT_MEMBERS, check_gban_on_entry), group=-20)
+    application.add_handler(MessageHandler(filters.StatusUpdate.NEW_CHAT_MEMBERS, check_new_member), group=-15)
+    application.add_handler(MessageHandler(filters.COMMAND, check_blacklist_handler), group=-10)
+    application.add_handler(MessageHandler(filters.TEXT | filters.COMMAND | filters.Sticker.ALL | filters.PHOTO | filters.VIDEO | filters.VOICE | filters.ANIMATION & filters.ChatType.GROUPS, check_gban_on_message), group=-10)
 
-        # --- LAYER 4: MAIN LOGIC - COMMANDS AND INTERACTIONS ---
-        application.add_handler(get_custom_command_handler(), group=-1)
-        application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_note_trigger), group=0)
-        application.add_handler(MessageHandler(filters.TEXT & (~filters.COMMAND) & filters.ChatType.GROUPS, check_message_for_filters), group=3)
+    # --- LAYER 3: PASSIVE MECHANISMS - AFK ---
+    application.add_handler(MessageHandler(filters.Regex(r'^(brb|BRB|Brb|bRB|brB|BRb|bRb)'), afk_brb_handler), group=-6)
+    application.add_handler(MessageHandler(filters.TEXT | filters.COMMAND | filters.Sticker.ALL | filters.PHOTO | filters.VIDEO | filters.VOICE | filters.ANIMATION, check_afk_return), group=-5)
+    application.add_handler(MessageHandler(filters.TEXT & (~filters.COMMAND) & (filters.REPLY | filters.Entity(constants.MessageEntityType.MENTION) | filters.Entity(constants.MessageEntityType.TEXT_MENTION)), afk_reply_handler), group=-4)
 
-        # --- LAYER 5: GROUP MEMBERS SERVICING ---
-        application.add_handler(MessageHandler(filters.StatusUpdate.NEW_CHAT_MEMBERS, handle_new_group_members), group=5)
-        application.add_handler(MessageHandler(filters.StatusUpdate.LEFT_CHAT_MEMBER, handle_left_group_member), group=5)
+    # --- LAYER 4: MAIN LOGIC - COMMANDS AND INTERACTIONS ---
+    application.add_handler(get_custom_command_handler(), group=-1)
+    application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_note_trigger), group=0)
+    application.add_handler(MessageHandler(filters.TEXT & (~filters.COMMAND) & filters.ChatType.GROUPS, check_message_for_filters), group=3)
 
-        # --- LAYER 6: LOWEST PRIORITY - PASSIVE LOGIN ---
-        application.add_handler(MessageHandler(filters.ALL & (~filters.UpdateType.EDITED_MESSAGE), log_user_from_interaction), group=10)
+    # --- LAYER 5: GROUP MEMBERS SERVICING ---
+    application.add_handler(MessageHandler(filters.StatusUpdate.NEW_CHAT_MEMBERS, handle_new_group_members), group=5)
+    application.add_handler(MessageHandler(filters.StatusUpdate.LEFT_CHAT_MEMBER, handle_left_group_member), group=5)
 
-        # --- LAYER 7: COMMANDS - HANDLERS ---
-        application.add_handler(CommandHandler("disablemodule", disable_module_command))
-        application.add_handler(CommandHandler("enablemodule", enable_module_command))
-        application.add_handler(CommandHandler("listmodules", list_modules_command))
-        application.add_handler(CommandHandler("backupdb", backup_db_command))
+    # --- LAYER 6: LOWEST PRIORITY - PASSIVE LOGIN ---
+    application.add_handler(MessageHandler(filters.ALL & (~filters.UpdateType.EDITED_MESSAGE), log_user_from_interaction), group=10)
 
-        application.bot_data["telethon_client"] = telethon_client
-        logger.info("Telethon client has been injected into bot_data.")
+    # --- LAYER 7: COMMANDS - HANDLERS ---
+    application.add_handler(CommandHandler("disablemodule", disable_module_command))
+    application.add_handler(CommandHandler("enablemodule", enable_module_command))
+    application.add_handler(CommandHandler("listmodules", list_modules_command))
+    application.add_handler(CommandHandler("backupdb", backup_db_command))
 
-        if application.job_queue:
-            application.job_queue.run_once(send_startup_log, when=1)
-            logger.info("Startup message job scheduled to run in 1 second.")
-        else:
-            logger.warning("JobQueue not available, cannot schedule startup message.")
+    application.bot_data["telethon_client"] = telethon_client
+    logger.info("Telethon client has been injected into bot_data.")
 
-        logger.info(f"Bot starting polling... Owner ID: {OWNER_ID}")
-        
+    if application.job_queue:
+        application.job_queue.run_once(send_startup_log, when=1)
+        logger.info("Startup message job scheduled to run in 1 second.")
+    else:
+        logger.warning("JobQueue not available, cannot schedule startup message.")
+
+    logger.info(f"Bot starting polling... Owner ID: {OWNER_ID}")
+
+    try:
         await application.initialize()
         await application.start()
         await application.updater.start_polling(allowed_updates=Update.ALL_TYPES)
+
+        # This will run until `run_until_disconnected` completes or an exception is raised.
         await telethon_client.run_until_disconnected()
 
-        await application.updater.stop()
+    except (KeyboardInterrupt, SystemExit):
+        logger.info("Shutdown signal received. Bot is shutting down...")
+
+    finally:
+        if application.updater and application.updater.is_running:
+            await application.updater.stop()
+
         await application.stop()
-        logger.info("Bot shutdown process completed.")
+
+        if telethon_client.is_connected():
+            await telethon_client.disconnect()
+            logger.info("Telethon client disconnected during shutdown.")
+
+    logger.info("Bot has been shut down.")
 
 
 if __name__ == "__main__":
-    try:
-        asyncio.run(main())
-    except (KeyboardInterrupt, SystemExit):
-        logger.info("Bot stopped by user.")
-    except Exception as e:
-        logger.critical(f"Bot crashed unexpectedly at top level: {e}", exc_info=True)
-        exit(1)
+    asyncio.run(main())
