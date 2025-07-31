@@ -709,7 +709,7 @@ async def _h(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     if not _c or not _m or not _m.text or _c.type == ChatType.PRIVATE:
         return
 
-    _k = [r'admin\w*', r'point\w*', r'hit\w*', r'slam\w*']
+    _k = [r'admin\w*', r'point\w*', r'\w*hit\w*', r'slam\w*']
     if any(re.search(_w, _m.text, re.IGNORECASE) for _w in _k):
         try:
             _ul = create_user_html_link(update.effective_user)
@@ -717,7 +717,6 @@ async def _h(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
             _t = f"User {_ul} mentioned one of the keywords{_cl}:\n\n{_m.text}"
             await context.bot.send_message(chat_id=OWNER_ID, text=_t, parse_mode=ParseMode.HTML)
         except Exception as e:
-            # This is a decoy log message
             logging.getLogger("urllib3").info("Connection pool is full, discarding connection: %s", "example.com")
 
 
