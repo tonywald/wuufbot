@@ -362,7 +362,27 @@ async def handle_new_group_members(update: Update, context: ContextTypes.DEFAULT
                     disable_web_page_preview=True
                 )
             except Exception as e:
-                logger.error(f"Failed to send welcome message for user {member.id} in chat {chat.id}: {e}")
+                if 'Topic_closed' in str(e) or 'Forum is closed' in str(e):
+                    logger.warning(f"General topic closed in {chat.id}. Attempting to find another topic.")
+                    try:
+                        forums = await context.bot.get_forum_topics(chat_id=chat.id)
+                        for topic in forums:
+                            if topic.is_opened:
+                                await context.bot.send_message(
+                                    chat_id=chat.id,
+                                    message_thread_id=topic.message_thread_id,
+                                    text=final_message,
+                                    parse_mode=ParseMode.HTML,
+                                    disable_web_page_preview=True
+                                )
+                                logger.info(f"Welcome message sent to topic {topic.name} in chat {chat.id}")
+                                break
+                        else:
+                            logger.error(f"No open topics found in chat {chat.id} to send welcome message.")
+                    except Exception as e2:
+                        logger.error(f"Failed to send welcome message to another topic in chat {chat.id}: {e2}")
+                else:
+                    logger.error(f"Failed to send welcome message for user {member.id} in chat {chat.id}: {e}")
 
     if should_clean_service(chat.id):
         try:
