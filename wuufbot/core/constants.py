@@ -30,19 +30,25 @@ USER_CHAT_INFO = """
 
 MODERATION_COMMANDS = """
 <b>🔹 Bans</b>
-/ban &lt;ID/@user/reply&gt; [Time] [Reason] - Ban a user. Time and Reason are optional but recommended.
+/ban &lt;ID/@user/reply&gt; [Reason] - Ban a user.
+/tban &lt;ID/@user/reply&gt; [Time] [Reason] - Timeout ban a user.
+/dban &lt;reply&gt; [Reason] - Delete message and ban a user.
 /unban &lt;ID/@user/reply&gt; - Unban a user.
 
 <b>🔹 Mutes</b>
-/mute &lt;ID/@user/reply&gt; [Time] [Reason] - Mute a user.
+/mute &lt;ID/@user/reply&gt; [Reason] - Mute a user.
+/tmute &lt;ID/@user/reply&gt; [Time] [Reason] - Timeout mute a user.
+/dmute &lt;reply&gt; [Reason] - Delete message and mute a user.
 /unmute &lt;ID/@user/reply&gt; - Unmute a user.
 
 <b>🔹 Kicks</b>
 /kick &lt;ID/@user/reply&gt; [Reason] - Kick a user.
+/dkick &lt;reply&gt; [Reason] - Delete message and kick a user.
 /kickme - Kick yourself from the chat.
 
 <b>🔹 Warns</b>
 /warn &lt;ID/@user/reply&gt; [Reason] - Warn a user.
+/dwarn &lt;reply&gt; [Reason] - Delete message and warn a user.
 /warnings &lt;ID/@user/reply&gt; - Check a user's warnings.
 /resetwarns &lt;ID/@user/reply&gt; - Reset user's warnings.
 /setwarnlimit &lt;number&gt; - Set the warning limit for this chat.
@@ -88,6 +94,9 @@ You can disable/enable commands for non-admins in this chat.
 • <code>/disable &lt;command&gt;</code>
 • <code>/enable &lt;command&gt;</code>
 • <code>/settings</code> - Shows current settings.
+
+• <code>/disable all</code> - Disable all commands that are enabled.
+• <code>/enable all</code> - Enable all commands that are disabled.
 
 <b>🔹 Module: fun</b>
 /kill - Metaphorically eliminate someone.
@@ -168,19 +177,19 @@ NOTES = """
 /notes - See all notes in this chat.
 /addnote &lt;name&gt; [content] - Create a new note.
 /delnote &lt;name&gt; - Delete a note.
-<i>To get a note, simply use #notename in the chat.</i>
+<i>To get a note, use /get notename or #notename in the chat.</i>
 """
 
 CHAT_SETTINGS = """
 <b>🔹 Welcome & Goodbye</b>
 /welcomehelp - Get help with text formatting and placeholders.
-/welcome &lt;on/off&gt; - Enable or disable welcome messages.
+/welcome &lt;yes/on/off/no&gt; - Enable or disable welcome messages.
 /setwelcome &lt;text&gt; - Set a custom welcome message.
 /resetwelcome - Reset the welcome message to default.
-/goodbye &lt;on/off&gt; - Enable or disable goodbye messages.
+/goodbye &lt;yes/on/off/no&gt; - Enable or disable goodbye messages.
 /setgoodbye &lt;text&gt; - Set a custom goodbye message.
 /resetgoodbye - Reset the goodbye message to default.
-/cleanservice &lt;on/off&gt; - Enable or disable cleaning of service messages.
+/cleanservice &lt;yes/on/off/no&gt; - Enable or disable cleaning of service messages.
 
 <b>🔹 Rules</b>
 /rules - Check group rules.
@@ -189,7 +198,8 @@ CHAT_SETTINGS = """
 """
 
 CHAT_SECURITY = """
-/enforcegban &lt;yes/no&gt; - Enable/disable Global Ban enforcement. <i>(Chat Creator only)</i>
+/enforcegban &lt;yes/on/off/no&gt; - Enable/disable Global Ban enforcement. <i>(Chat Creator only)</i>
+/gbanstat - The same what enforcegban.
 """
 
 AI_COMMANDS = """
@@ -210,7 +220,7 @@ FUN_COMMANDS = """
 """
 
 ADMIN_NOTE_TEXT = """
-<i>Note: Commands /ban, /unban, /mute, /unmute, /kick, /pin, /unpin, /purge, /promote, /demote, /zombies can be used by sudo, developer users and owner even if they are not chat administrators. (Use it wisely and don't overuse your power. Otherwise you may lose your privileges)</i>
+<i>Note: Moderation commands can be used by sudo, developer users and owner even if they are not chat administrators. (Use it wisely and don't overuse your power. Otherwise you may lose your privileges)</i>
 """
 
 SUPPORT_COMMANDS_TEXT = """

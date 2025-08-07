@@ -8,7 +8,7 @@ from telegram.ext import Application, CommandHandler, MessageHandler, filters, C
 
 from ..config import APPEAL_CHAT_USERNAME, DB_NAME
 from ..core.database import is_gban_enforced, get_gban_reason, add_to_gban, remove_from_gban, is_whitelisted, add_chat_to_db
-from ..core.utils import is_privileged_user, resolve_user_with_telethon, create_user_html_link, safe_escape, send_operational_log, propagate_unban
+from ..core.utils import is_privileged_user, resolve_user_with_telethon, create_user_html_link, safe_escape, send_operational_log, propagate_unban, is_entity_a_user
 from ..core.decorators import check_module_enabled
 from ..core.handlers import custom_handler
 
@@ -102,7 +102,7 @@ async def gban_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
     target_entity: User | Chat | None = None
     reason: str | None = None
 
-    if message.reply_to_message:
+    if message.reply_to_message and not update.message.reply_to_message.forum_topic_created:
         target_entity = message.reply_to_message.sender_chat or message.reply_to_message.from_user
         if context.args:
             reason = " ".join(context.args)
@@ -111,8 +111,17 @@ async def gban_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
         if len(context.args) > 1:
             reason = " ".join(context.args[1:])
         target_entity = await resolve_user_with_telethon(context, target_input, update)
-        if not target_entity and target_input.isdigit():
-            target_entity = User(id=int(target_input), first_name="", is_bot=False)
+        if not target_entity:
+            try:
+                target_id = int(target_input)
+                
+                if target_id > 0:
+                    target_entity = User(id=target_id, first_name="", is_bot=False)
+                else:
+                    target_entity = Chat(id=target_id, type="channel")
+                    
+            except ValueError:
+                pass
         
     if not target_entity:
         await message.reply_html("Usage: /gban &lt;ID/@username/reply&gt; [reason]")
@@ -122,7 +131,7 @@ async def gban_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
         await message.reply_text("You must provide a reason for this action.")
         return
 
-    if not isinstance(target_entity, User):
+    if not is_entity_a_user(target_entity):
         await message.reply_text("🧐 This action can only be applied to users.")
         return
     if is_privileged_user(target_entity.id) or target_entity.id == context.bot.id:
@@ -193,13 +202,22 @@ async def ungban_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
         return
 
     target_entity: User | Chat | None = None
-    if message.reply_to_message:
+    if message.reply_to_message and not update.message.reply_to_message.forum_topic_created:
         target_entity = message.reply_to_message.sender_chat or message.reply_to_message.from_user
     elif context.args:
         target_input = context.args[0]
         target_entity = await resolve_user_with_telethon(context, target_input, update)
-        if not target_entity and target_input.isdigit():
-            target_entity = User(id=int(target_input), first_name="", is_bot=False)
+        if not target_entity:
+            try:
+                target_id = int(target_input)
+                
+                if target_id > 0:
+                    target_entity = User(id=target_id, first_name="", is_bot=False)
+                else:
+                    target_entity = Chat(id=target_id, type="channel")
+                    
+            except ValueError:
+                pass
 
     if not target_entity:
         await message.reply_html("Usage: /ungban &lt;ID/@username/reply&gt;")
@@ -208,7 +226,7 @@ async def ungban_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
     if not target_entity:
         await message.reply_text("Skrrrt... I can't find the user."); return
 
-    if isinstance(target_entity, Chat) and target_entity.type != ChatType.PRIVATE:
+    if not is_entity_a_user(target_entity):
         await message.reply_text("🧐 This action can only be applied to users."); return
 
     user_display = create_user_html_link(target_entity)
@@ -250,7 +268,7 @@ async def ungban_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
         await message.reply_text("Failed to remove from global ban list.")
 
 @check_module_enabled("globalbans")
-@custom_handler("enforcegban")
+@custom_handler(["enforcegban", "gbanstat"])
 async def enforce_gban_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     chat = update.effective_chat
     user = update.effective_user
@@ -268,14 +286,14 @@ async def enforce_gban_command(update: Update, context: ContextTypes.DEFAULT_TYP
         logger.error(f"Could not verify creator status for /enforcegban: {e}")
         return
 
-    if not context.args or len(context.args) != 1 or context.args[0].lower() not in ['yes', 'no']:
-        await update.message.reply_text("Usage: /enforcegban <yes/no>")
+    if not context.args or len(context.args) != 1 or context.args[0].lower() not in ['yes', 'on', 'off', 'no']:
+        await update.message.reply_text("Usage: /enforcegban <yes/on/off/no>")
         return
     
     choice = context.args[0].lower()
     current_status_bool = is_gban_enforced(chat.id)
 
-    if choice == 'yes':
+    if choice == 'yes' or choice == 'on':
         permission_notice = ""
         try:
             bot_member = await context.bot.get_chat_member(chat.id, context.bot.id)
@@ -315,7 +333,7 @@ async def enforce_gban_command(update: Update, context: ContextTypes.DEFAULT_TYP
         )
         return
 
-    if choice == 'no':
+    if choice == 'no' or choice == 'off':
         if not current_status_bool:
             await update.message.reply_html("ℹ️ Global Ban enforcement is already <b>DISABLED</b> for this chat.")
             return
@@ -342,4 +360,4 @@ async def enforce_gban_command(update: Update, context: ContextTypes.DEFAULT_TYP
 def load_handlers(application: Application):
     application.add_handler(CommandHandler("gban", gban_command))
     application.add_handler(CommandHandler("ungban", ungban_command))
-    application.add_handler(CommandHandler("enforcegban", enforce_gban_command))
+    application.add_handler(CommandHandler(["enforcegban", "gbanstat"], enforce_gban_command))

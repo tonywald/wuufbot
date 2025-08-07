@@ -28,7 +28,7 @@ from ..core.database import (
 )
 from ..core.utils import (
     is_owner_or_dev, get_readable_time_delta, safe_escape, resolve_user_with_telethon,
-    create_user_html_link, send_operational_log, is_privileged_user, run_speed_test_async
+    create_user_html_link, send_operational_log, is_privileged_user, run_speed_test_async, is_entity_a_user
 )
 from ..core.constants import LEAVE_TEXTS
 from ..core.decorators import check_module_enabled
@@ -1005,7 +1005,7 @@ async def addsudo_command(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
 
     target_user: User | None = None
 
-    if message.reply_to_message:
+    if message.reply_to_message and not update.message.reply_to_message.forum_topic_created:
         target_user = message.reply_to_message.from_user
     elif context.args:
         target_input = context.args[0]
@@ -1031,7 +1031,7 @@ async def addsudo_command(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
         await message.reply_html(f"ℹ️ User {user_display} [<code>{target_user.id}</code>] already has a privileged role. Use /setrank if want change it.")
         return
     
-    if not isinstance(target_user, User):
+    if not is_entity_a_user(target_user):
         await message.reply_text("🧐 Sudo can only be granted to users.")
         return
 
@@ -1105,19 +1105,22 @@ async def delsudo_command(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
 
     target_user: User | None = None
 
-    if message.reply_to_message:
+    if message.reply_to_message and not update.message.reply_to_message.forum_topic_created:
         target_user = message.reply_to_message.from_user
     elif context.args:
         target_input = context.args[0]
         
         target_user = await resolve_user_with_telethon(context, target_input, update)
         
-        if not target_user and target_input.isdigit():
+        if not target_user:
             try:
-                target_user = await context.bot.get_chat(int(target_input))
-            except:
-                logger.warning(f"Could not resolve full profile for ID {target_input} in DELSUDO. Creating a minimal User object.")
-                target_user = User(id=int(target_input), first_name="", is_bot=False)
+                target_id = int(target_input)
+                if target_id > 0:
+                    target_user = User(id=target_id, first_name="", is_bot=False)
+                else:
+                    target_user = Chat(id=target_id, type="channel")
+            except ValueError:
+                pass
     else:
         await message.reply_text("Usage: /delsudo <ID/@username/reply>")
         return
@@ -1126,7 +1129,7 @@ async def delsudo_command(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
         await message.reply_text("Skrrrt... I can't find the user..")
         return
 
-    if not isinstance(target_user, User):
+    if not is_entity_a_user(target_user):
         await message.reply_text("🧐 Sudo can only be revoked from users.")
         return
 
@@ -1178,18 +1181,28 @@ async def setrank_command(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
     target_user: User | None = None
     args_for_role: list[str] = []
 
-    if message.reply_to_message:
+    if message.reply_to_message and not update.message.reply_to_message.forum_topic_created:
         target_user = message.reply_to_message.from_user
         args_for_role = context.args
     elif context.args:
         target_input = context.args[0]
         target_user = await resolve_user_with_telethon(context, target_input, update)
-        if not target_user and target_input.isdigit():
-            target_user = User(id=int(target_input), first_name="", is_bot=False)
-        args_for_role = context.args[1:]
+        if not target_user:
+            try:
+                target_id = int(target_input)
+                if target_id > 0:
+                    target_user = User(id=target_id, first_name="", is_bot=False)
+                else:
+                    target_user = Chat(id=target_id, type="channel")
+            except ValueError:
+                pass
     
     if not target_user or not args_for_role:
         await message.reply_text("Usage: /setrank <ID/@username/reply> [support/sudo/dev]")
+        return
+
+    if not is_entity_a_user(target_user):
+        await message.reply_text("After all, channels can't have privileged ranks, so why would you want to do that?")
         return
 
     new_role_shortcut = args_for_role[0].lower()
@@ -1280,13 +1293,20 @@ async def addsupport_command(update: Update, context: ContextTypes.DEFAULT_TYPE)
         return
 
     target_user: User | None = None
-    if message.reply_to_message:
+    if message.reply_to_message and not update.message.reply_to_message.forum_topic_created:
         target_user = message.reply_to_message.from_user
     elif context.args:
         target_input = context.args[0]
         target_user = await resolve_user_with_telethon(context, target_input, update)
-        if not target_user and target_input.isdigit():
-            target_user = User(id=int(target_input), first_name="", is_bot=False)
+        if not target_user:
+            try:
+                target_id = int(target_input)
+                if target_id > 0:
+                    target_user = User(id=target_id, first_name="", is_bot=False)
+                else:
+                    target_user = Chat(id=target_id, type="channel")
+            except ValueError:
+                pass
     else:
         await message.reply_text("Usage: /addsupport <ID/@username/reply>")
         return
@@ -1300,7 +1320,7 @@ async def addsupport_command(update: Update, context: ContextTypes.DEFAULT_TYPE)
         await message.reply_html(f"ℹ️ User {user_display} [<code>{target_user.id}</code>] already has a privileged role. Use /setrank if want change it.")
         return
     
-    if not isinstance(target_user, User):
+    if not is_entity_a_user(target_user):
         await message.reply_text("🧐 This role can only be granted to users.")
         return
 
@@ -1369,13 +1389,20 @@ async def delsupport_command(update: Update, context: ContextTypes.DEFAULT_TYPE)
         return
 
     target_user: User | None = None
-    if message.reply_to_message:
+    if message.reply_to_message and not update.message.reply_to_message.forum_topic_created:
         target_user = message.reply_to_message.from_user
     elif context.args:
         target_input = context.args[0]
         target_user = await resolve_user_with_telethon(context, target_input, update)
-        if not target_user and target_input.isdigit():
-            target_user = User(id=int(target_input), first_name="", is_bot=False)
+        if not target_user:
+            try:
+                target_id = int(target_input)
+                if target_id > 0:
+                    target_user = User(id=target_id, first_name="", is_bot=False)
+                else:
+                    target_user = Chat(id=target_id, type="channel")
+            except ValueError:
+                pass
     else:
         await message.reply_text("Usage: /delsupport <ID/@username/reply>")
         return
@@ -1384,7 +1411,7 @@ async def delsupport_command(update: Update, context: ContextTypes.DEFAULT_TYPE)
         await message.reply_text("Skrrrt... I can't find the user.")
         return
 
-    if not isinstance(target_user, User):
+    if not is_entity_a_user(target_user):
         await message.reply_text("🧐 This role can only be revoked from users.")
         return
     
@@ -1430,13 +1457,20 @@ async def adddev_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
         return
 
     target_user: User | None = None
-    if message.reply_to_message:
+    if message.reply_to_message and not update.message.reply_to_message.forum_topic_created:
         target_user = message.reply_to_message.from_user
     elif context.args:
         target_input = context.args[0]
         target_user = await resolve_user_with_telethon(context, target_input, update)
-        if not target_user and target_input.isdigit():
-            target_user = User(id=int(target_input), first_name="", is_bot=False)
+        if not target_user:
+            try:
+                target_id = int(target_input)
+                if target_id > 0:
+                    target_user = User(id=target_id, first_name="", is_bot=False)
+                else:
+                    target_user = Chat(id=target_id, type="channel")
+            except ValueError:
+                pass
     else:
         await message.reply_text("Usage: /adddev <ID/@username/reply>")
         return
@@ -1450,7 +1484,7 @@ async def adddev_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
         await message.reply_html(f"ℹ️ User {user_display} [<code>{target_user.id}</code>] already has a privileged role. Use /setrank if want change it.")
         return
     
-    if not isinstance(target_user, User):
+    if not is_entity_a_user(target_user):
         await message.reply_text("🧐 This role can only be granted to users.")
         return
 
@@ -1516,13 +1550,20 @@ async def deldev_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
         return
 
     target_user: User | None = None
-    if message.reply_to_message:
+    if message.reply_to_message and not update.message.reply_to_message.forum_topic_created:
         target_user = message.reply_to_message.from_user
     elif context.args:
         target_input = context.args[0]
         target_user = await resolve_user_with_telethon(context, target_input, update)
-        if not target_user and target_input.isdigit():
-            target_user = User(id=int(target_input), first_name="", is_bot=False)
+        if not target_user:
+            try:
+                target_id = int(target_input)
+                if target_id > 0:
+                    target_user = User(id=target_id, first_name="", is_bot=False)
+                else:
+                    target_user = Chat(id=target_id, type="channel")
+            except ValueError:
+                pass
     else:
         await message.reply_text("Usage: /deldev <ID/@username/reply>")
         return
@@ -1531,7 +1572,7 @@ async def deldev_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
         await message.reply_text("Skrrrt... I can't find the user.")
         return
 
-    if not isinstance(target_user, User):
+    if not is_entity_a_user(target_user):
         await message.reply_text("🧐 This role can only be revoked from users.")
         return
     
@@ -1573,13 +1614,20 @@ async def whitelist_user_command(update: Update, context: ContextTypes.DEFAULT_T
         return
 
     target_user: User | None = None
-    if message.reply_to_message:
+    if message.reply_to_message and not update.message.reply_to_message.forum_topic_created:
         target_user = message.reply_to_message.from_user
     elif context.args:
         target_input = context.args[0]
         target_user = await resolve_user_with_telethon(context, target_input, update)
-        if not target_user and target_input.isdigit():
-            target_user = User(id=int(target_input), first_name="", is_bot=False)
+        if not target_user:
+            try:
+                target_id = int(target_input)
+                if target_id > 0:
+                    target_user = User(id=target_id, first_name="", is_bot=False)
+                else:
+                    target_user = Chat(id=target_id, type="channel")
+            except ValueError:
+                pass
     else:
         await message.reply_text("Usage: /addsupport <ID/@username/reply>")
         return
@@ -1588,7 +1636,7 @@ async def whitelist_user_command(update: Update, context: ContextTypes.DEFAULT_T
         await message.reply_text("Skrrrt... I can't find the user.")
         return
         
-    if not isinstance(target_user, User):
+    if not is_entity_a_user(target_user):
         await message.reply_text("🧐 Added to Whitelist can only be users.")
         return
 
@@ -1647,7 +1695,7 @@ async def whitelist_user_command(update: Update, context: ContextTypes.DEFAULT_T
         await message.reply_text("Failed to add user to whitelist (they might be already on it).")
 
 @check_module_enabled("core")
-@custom_handler(["whitelist", "wlist"])
+@custom_handler(["unwhitelist", "unwlist"])
 async def unwhitelist_user_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     user = update.effective_user
     message = update.message
@@ -1656,13 +1704,20 @@ async def unwhitelist_user_command(update: Update, context: ContextTypes.DEFAULT
         return
 
     target_user: User | None = None
-    if message.reply_to_message:
+    if message.reply_to_message and not update.message.reply_to_message.forum_topic_created:
         target_user = message.reply_to_message.from_user
     elif context.args:
         target_input = context.args[0]
         target_user = await resolve_user_with_telethon(context, target_input, update)
-        if not target_user and target_input.isdigit():
-            target_user = User(id=int(target_input), first_name="", is_bot=False)
+        if not target_user:
+            try:
+                target_id = int(target_input)
+                if target_id > 0:
+                    target_user = User(id=target_id, first_name="", is_bot=False)
+                else:
+                    target_user = Chat(id=target_id, type="channel")
+            except ValueError:
+                pass
     else:
         await message.reply_text("Usage: /unwhitelist <ID/@username/reply>")
         return
@@ -1671,7 +1726,7 @@ async def unwhitelist_user_command(update: Update, context: ContextTypes.DEFAULT
         await message.reply_text("Skrrrt... I can't find the user.")
         return
 
-    if not isinstance(target_user, User):
+    if not is_entity_a_user(target_user):
         await message.reply_text("🧐 Deleted from Whitelist can only be users.")
         return
 

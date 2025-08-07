@@ -9,7 +9,8 @@ from ..config import OWNER_ID, DB_NAME, APPEAL_CHAT_USERNAME
 from ..core.database import (
     set_welcome_setting, get_welcome_settings, set_goodbye_setting, get_goodbye_settings,
     set_clean_service, should_clean_service, add_chat_to_db, remove_chat_from_db,
-    is_dev_user, is_sudo_user, is_support_user, is_chat_blacklisted, update_user_in_db
+    is_dev_user, is_sudo_user, is_support_user, is_chat_blacklisted, update_user_in_db,
+    is_gban_enforced, get_gban_reason
 )
 from ..core.utils import _can_user_perform_action, send_safe_reply, safe_escape, format_message_text, send_critical_log
 from ..core.constants import OWNER_WELCOME_TEXTS, DEV_WELCOME_TEXTS, SUDO_WELCOME_TEXTS, SUPPORT_WELCOME_TEXTS, GENERIC_WELCOME_TEXTS, GENERIC_GOODBYE_TEXTS
@@ -32,8 +33,8 @@ async def welcome_command(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
     if not await _can_user_perform_action(update, context, 'can_change_info', "Why should I listen to a person with no privileges for this? You need 'can_change_info' permission.", allow_bot_privileged_override=False):
         return
 
-    if context.args and context.args[0].lower() in ['on', 'off']:
-        is_on = context.args[0].lower() == 'on'
+    if context.args and context.args[0].lower() in ['yes', 'on', 'off', 'no']:
+        is_on = context.args[0].lower() == 'on' or context.args[0].lower() == 'yes'
         try:
             with sqlite3.connect(DB_NAME) as conn:
                  conn.execute("UPDATE bot_chats SET welcome_enabled = ? WHERE chat_id = ?", (1 if is_on else 0, chat.id))
@@ -118,8 +119,8 @@ async def goodbye_command(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
     if not await _can_user_perform_action(update, context, 'can_change_info', "Why should I listen to a person with no privileges for this? You need 'can_change_info' permission.", allow_bot_privileged_override=False):
         return
 
-    if context.args and context.args[0].lower() in ['on', 'off']:
-        is_on = context.args[0].lower() == 'on'
+    if context.args and context.args[0].lower() in ['yes', 'on', 'off', 'no']:
+        is_on = context.args[0].lower() == 'on' or context.args[0].lower() == 'yes'
         set_goodbye_setting(chat.id, enabled=is_on)
         status_text = "ENABLED" if is_on else "DISABLED"
         await update.message.reply_html(f"✅ Goodbye messages have been <b>{status_text}</b>.")
@@ -230,11 +231,11 @@ async def set_clean_service_command(update: Update, context: ContextTypes.DEFAUL
         await update.message.reply_html(f"Automatic cleaning of service messages is currently <b>{status}</b>.")
         return
 
-    if context.args[0].lower() not in ['on', 'off']:
-        await update.message.reply_text("Usage: /cleanservice <on/off>")
+    if context.args and context.args[0].lower() not in ['yes', 'on', 'off', 'no']:
+        await update.message.reply_text("Usage: /cleanservice <yes/on/off/no>")
         return
         
-    is_on = context.args[0].lower() == 'on'
+    is_on = context.args[0].lower() == 'on' or context.args[0].lower() == 'yes'
     
     if is_on:
         try:
@@ -278,7 +279,7 @@ async def handle_new_group_members(update: Update, context: ContextTypes.DEFAULT
                 f"I'm here to help manage the chat. "
                 f"To see what I can do, click button 'Get Help in PM'.\n\n"
                 f"<b>I was added by {update.message.from_user.mention_html()}</b>.\n"
-                f"<i>I'm still a work in progress. Various bugs and security holes may appear and they will be patched as quickly as possible. For any questions or issues, please contact the support team at {APPEAL_CHAT_USERNAME}.</i>"
+                f"<i>For any questions or issues, please contact our support team at {APPEAL_CHAT_USERNAME}.</i>"
             )
             
             keyboard = InlineKeyboardMarkup(
@@ -296,10 +297,19 @@ async def handle_new_group_members(update: Update, context: ContextTypes.DEFAULT
             logger.error(f"Failed to send introduction message to new group {chat.id}: {e}")
         return
 
+    if should_clean_service(chat.id):
+        try:
+            await update.message.delete()
+        except Exception:
+            pass
+
     welcome_enabled, custom_text = get_welcome_settings(chat.id)
 
     for member in update.message.new_chat_members:
         update_user_in_db(member)
+        if is_gban_enforced(chat.id) and get_gban_reason(member.id):
+            continue
+
         base_text = ""
         is_privileged_join = True
 
@@ -409,6 +419,9 @@ async def handle_left_group_member(update: Update, context: ContextTypes.DEFAULT
             await update.message.delete()
         except Exception:
             pass
+
+    if is_gban_enforced(chat.id) and get_gban_reason(left_member.id):
+        return
 
     is_enabled, custom_text = get_goodbye_settings(chat.id)
     if not is_enabled:
